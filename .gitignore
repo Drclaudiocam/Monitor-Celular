@@ -50,3 +50,9 @@ tools/ui-tests/test-results/
 
 *.log
 *.txt
+# Local tools and artifacts
+*.zip
+*.apk
+*.png
+agent-bin/
+platform-tools/

@@ -138,8 +138,7 @@ public sealed partial class SessionMonitor
                 var status = details.InFlight && age < TimeSpan.FromMinutes(3) ? "busy" : "idle";
                 var shortId = cand.ConvId.Length >= 4 ? cand.ConvId[..4] : cand.ConvId;
 
-                var hasTokens = details.TokensComplete &&
-                    (details.InputTokens is not null || details.OutputTokens is not null || details.CachedInputTokens is not null);
+                var hasTokens = details.InputTokens is not null || details.OutputTokens is not null || details.CachedInputTokens is not null;
                 long? input = hasTokens ? (details.InputTokens ?? 0) : null;
                 long? output = hasTokens ? (details.OutputTokens ?? 0) : null;
                 long? cached = hasTokens ? (details.CachedInputTokens ?? 0) : null;
@@ -585,7 +584,7 @@ public sealed partial class SessionMonitor
         var inFlight = previous?.InFlight ?? false;
         var outcome = previous?.Outcome;
         var lastTool = previous?.LastTool;
-        var tokensComplete = !hasPriorChunks && !jumped && (previous is null ? start == 0 : previous.TokensComplete);
+        var tokensComplete = !jumped && (previous is null ? start == 0 : previous.TokensComplete);
         if (!tokensComplete)
         {
             inputTokens = null;

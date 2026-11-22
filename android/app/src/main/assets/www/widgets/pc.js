@@ -1070,7 +1070,8 @@ W.chargecare = {
   needs: ['tick'],
   create(box) {
     const C = 2 * Math.PI * 42;
-    box.innerHTML = '<div class="w-title">Battery care</div><div class="cc-body"><div class="cc-wrap"><svg viewBox="0 0 100 100" class="cc-ring">' +
+    const isPt = (typeof LOCALE === 'string' && LOCALE.startsWith('pt')) || (typeof navigator !== 'undefined' && navigator.language && navigator.language.startsWith('pt'));
+    box.innerHTML = `<div class="w-title">${isPt ? 'Bateria' : 'Battery care'}</div><div class="cc-body"><div class="cc-wrap"><svg viewBox="0 0 100 100" class="cc-ring">` +
       '<circle class="cc-bg" cx="50" cy="50" r="42"/><circle class="cc-band" cx="50" cy="50" r="42"/><circle class="cc-fg" cx="50" cy="50" r="42"/></svg>' +
       '<b class="cc-pct">—</b></div></div><div class="cc-sub"><span class="cc-state"></span> <span class="cc-text"></span></div>';
     const q = (s) => box.querySelector(s);
@@ -1090,8 +1091,11 @@ W.chargecare = {
       q('.cc-state').replaceChildren(emo(b.plugged ? '⚡' : '🔋'));
       const col = b.level <= 20 ? '#ef4444' : ch.enabled && b.level > max ? '#f59e0b' : b.plugged ? '#22c55e' : 'rgb(var(--ambient))';
       box.style.setProperty('--cc', col);
-      q('.cc-text').textContent = !ch.enabled ? `Battery care is off${b.temp ? ` · ${b.temp.toFixed(0)} °C` : ''}`
-        : b.plugged ? `Charges up to ${max}%` + (b.level >= max ? ' · power off soon' : '') : `Charges again at ${min}%`;
+      q('.cc-text').textContent = !ch.enabled
+        ? (isPt ? `Proteção de bateria desligada${b.temp ? ` · ${b.temp.toFixed(0)} °C` : ''}` : `Battery care is off${b.temp ? ` · ${b.temp.toFixed(0)} °C` : ''}`)
+        : b.plugged
+          ? (isPt ? `Carrega até ${max}%` + (b.level >= max ? ' · desligar' : '') : `Charges up to ${max}%` + (b.level >= max ? ' · power off soon' : ''))
+          : (isPt ? `Recarrega em ${min}%` : `Charges again at ${min}%`);
     });
     return { update: load };
   },

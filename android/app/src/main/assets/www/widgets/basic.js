@@ -656,7 +656,8 @@ W.sessions = {
     // The tool each session comes from: one glyph in the list, a glyph and a name in the details panel.
     const toolIcon = (tool) => tool === 'claude' ? '✳' : tool === 'codex' ? '◎' : tool === 'cursor' ? '◆' : tool === 'opencode' ? '◈' : tool === 'antigravity' ? Q_STYLE.antigravity.logo : '◎';
     const toolTitle = (tool) => tool === 'claude' ? 'Claude Code' : tool === 'codex' ? 'Codex' : tool === 'cursor' ? 'Cursor' : tool === 'opencode' ? 'OpenCode' : tool === 'antigravity' ? 'Antigravity' : 'Codex';
-    const ageText = (since) => Date.now() - since < 60_000 ? 'just now' : shortDur(Date.now() - since) + ' ago';
+    const isPt = (typeof LOCALE === 'string' && LOCALE.startsWith('pt')) || (typeof navigator !== 'undefined' && navigator.language && navigator.language.startsWith('pt'));
+    const ageText = (since) => Date.now() - since < 60_000 ? (isPt ? 'agora mesmo' : 'just now') : (isPt ? `há ${shortDur(Date.now() - since)}` : shortDur(Date.now() - since) + ' ago');
     // A session's title is the main label and the project folder goes under it: Claude Code sends it only while
     // Settings › Claude Code › "Show session titles on the phone" is on, OpenCode only while "Show OpenCode session
     // titles" is on, and Antigravity only while "Show Antigravity chat titles on the phone" is on; without a title
@@ -764,7 +765,7 @@ W.sessions = {
       // a small label over each value, four to a row: the facts take one line instead of four
       panel.append(h('div', 'session-grid', rows.filter(([, value]) => value != null)
         .map(([label, value]) => h('div', 'session-cell', h('span', null, tp(label)), h('strong', null, value)))));
-      if (s.tool === 'codex' || (s.tool === 'antigravity' && s.totalTokens != null)) panel.append(h('p', 'session-note', tp('Token totals are for this local session, not your account allowance.')));
+      if (s.tool === 'codex' || (s.tool === 'antigravity' && s.totalTokens != null)) panel.append(h('p', 'session-note', isPt ? 'Os totais de tokens são desta sessão local, não o limite geral da sua conta.' : tp('Token totals are for this local session, not your account allowance.')));
       if (s.tool === 'claude') stopConversation = conversationSection(panel, s);
       backdrop.append(panel);
       document.body.append(backdrop);
@@ -778,9 +779,9 @@ W.sessions = {
         const counts = { waiting: 0, busy: 0, shell: 0, idle: 0 };
         sessions.forEach((s) => (counts[s.status] = (counts[s.status] || 0) + 1));
         sum.textContent = [
-          counts.busy + counts.shell ? `${counts.busy + counts.shell} working` : '',
-          counts.waiting ? `${counts.waiting} waiting` : '',
-          counts.idle ? `${counts.idle} idle` : '',
+          counts.busy + counts.shell ? (isPt ? `${counts.busy + counts.shell} em execução` : `${counts.busy + counts.shell} working`) : '',
+          counts.waiting ? (isPt ? `${counts.waiting} aguardando` : `${counts.waiting} waiting`) : '',
+          counts.idle ? (isPt ? `${counts.idle} ocioso` : `${counts.idle} idle`) : '',
         ].filter(Boolean).join(' · ') || t('w.noOpenSessions');
         const sorted = [...sessions].sort((a, b) => (S_ORDER[a.status] ?? 9) - (S_ORDER[b.status] ?? 9) || b.since - a.since);
         const rows = sorted.length ? sorted.map((s) => {

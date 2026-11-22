@@ -6,7 +6,10 @@ import { cached, every } from './helpers.js';
 export function moonPhase(date) {
   const syn = 29.530588853;
   const age = ((((date - Date.UTC(2000, 0, 6, 18, 14)) / 864e5) % syn) + syn) % syn;
-  const names = ['New moon', 'Waxing crescent', 'First quarter', 'Waxing gibbous', 'Full moon', 'Waning gibbous', 'Last quarter', 'Waning crescent'];
+  const isPt = (typeof LOCALE === 'string' && LOCALE.startsWith('pt')) || (typeof navigator !== 'undefined' && navigator.language && navigator.language.startsWith('pt'));
+  const namesPt = ['Lua nova', 'Lua crescente', 'Quarto crescente', 'Crescente gibosa', 'Lua cheia', 'Minguante gibosa', 'Quarto minguante', 'Lua minguante'];
+  const namesEn = ['New moon', 'Waxing crescent', 'First quarter', 'Waxing gibbous', 'Full moon', 'Waning gibbous', 'Last quarter', 'Waning crescent'];
+  const names = isPt ? namesPt : namesEn;
   const i = Math.floor(((age + syn / 16) % syn) / (syn / 8));
   return { name: names[i], age, illum: (1 - Math.cos((2 * Math.PI * age) / syn)) / 2 };
 }
@@ -28,7 +31,8 @@ function moonIcon(m) {
 W.sun = {
   needs: ['weather', 'tick'],
   create(box) {
-    box.innerHTML = '<div class="w-title">Sun &amp; moon<span class="w-sub"></span></div>' +
+    const isPt = (typeof LOCALE === 'string' && LOCALE.startsWith('pt')) || (typeof navigator !== 'undefined' && navigator.language && navigator.language.startsWith('pt'));
+    box.innerHTML = `<div class="w-title">${isPt ? 'Sol &amp; lua' : 'Sun &amp; moon'}<span class="w-sub"></span></div>` +
       '<svg class="sun-arc" viewBox="0 0 200 80" preserveAspectRatio="xMidYMax meet"><path class="sa-bg" d="M10 75 A90 70 0 0 1 190 75"/><path class="sa-fg" d="M10 75 A90 70 0 0 1 190 75"/><line class="sa-h" x1="2" y1="75" x2="198" y2="75"/><circle class="sa-sun" r="7" cx="10" cy="75"/></svg>' +
       '<div class="sun-row"><span class="sr"></span><span class="sl"></span><span class="ss"></span></div><div class="moon"></div>';
     const q = (s) => box.querySelector(s);
@@ -132,7 +136,8 @@ W.air = {
 W.moon = {
   needs: ['tick'],
   create(box) {
-    box.innerHTML = '<div class="w-title">Moon</div><div class="mo-body"><svg viewBox="0 0 100 100" class="mo-disc"><circle class="mo-dark" cx="50" cy="50" r="44"/><path class="mo-lit"/></svg>' +
+    const isPt = (typeof LOCALE === 'string' && LOCALE.startsWith('pt')) || (typeof navigator !== 'undefined' && navigator.language && navigator.language.startsWith('pt'));
+    box.innerHTML = `<div class="w-title">${isPt ? 'Lua' : 'Moon'}</div><div class="mo-body"><svg viewBox="0 0 100 100" class="mo-disc"><circle class="mo-dark" cx="50" cy="50" r="44"/><path class="mo-lit"/></svg>` +
       '<div class="mo-text"><b class="mo-name"></b><span class="mo-ill"></span><small class="mo-next"></small></div></div>';
     const q = (s) => box.querySelector(s);
     let shown = -1;
@@ -147,9 +152,19 @@ W.moon = {
         const m = moonPhase(now);
         q('.mo-lit').setAttribute('d', moonLitPath(m));
         q('.mo-name').textContent = m.name;
-        q('.mo-ill').textContent = `${Math.round(m.illum * 100)}% lit`;
-        const inDays = (target) => { const dd = ((target - age) % syn + syn) % syn; return dd < 0.5 ? 'tonight' : dd < 1.5 ? 'tomorrow' : `in ${Math.round(dd)} days`; };
-        q('.mo-next').textContent = age < syn / 2 ? `Full moon ${inDays(syn / 2)}` : `New moon ${inDays(syn)}`;
+        q('.mo-ill').textContent = isPt ? `${Math.round(m.illum * 100)}% iluminada` : `${Math.round(m.illum * 100)}% lit`;
+        const inDays = (target) => {
+          const dd = ((target - age) % syn + syn) % syn;
+          if (isPt) {
+            return dd < 0.5 ? 'hoje à noite' : dd < 1.5 ? 'amanhã' : `em ${Math.round(dd)} dias`;
+          }
+          return dd < 0.5 ? 'tonight' : dd < 1.5 ? 'tomorrow' : `in ${Math.round(dd)} days`;
+        };
+        if (isPt) {
+          q('.mo-next').textContent = age < syn / 2 ? `Lua cheia ${inDays(syn / 2)}` : `Lua nova ${inDays(syn)}`;
+        } else {
+          q('.mo-next').textContent = age < syn / 2 ? `Full moon ${inDays(syn / 2)}` : `New moon ${inDays(syn)}`;
+        }
       },
     };
   },

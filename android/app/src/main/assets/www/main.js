@@ -54,7 +54,7 @@ export const $ = (id) => document.getElementById(id);
 // The native bridge (window.Android) is in every frame, sandboxed widgets included, so each call carries a key that only
 // the panel's own frames receive (MainActivity.bridgeKey). This wrapper adds it.
 const BRIDGE = ['battery', 'buzz', 'haptic', 'is24Hour', 'pcs', 'selectPc', 'forgetPc', 'setBrightness', 'setHomeScreen', 'setOrientation',
-  'setPinned', 'setVolumeKeys', 'setLanguage', 'transport', 'sensors', 'version', 'canListen', 'listen', 'stopListening', 'cancelListening', 'trackpad', 'canWake', 'wakePc'];
+  'setPinned', 'setVolumeKeys', 'setLanguage', 'transport', 'sensors', 'version', 'canListen', 'listen', 'stopListening', 'cancelListening', 'trackpad', 'canWake', 'wakePc', 'location'];
 export const bridge = typeof Android === 'undefined' ? null : Object.fromEntries(BRIDGE.filter((m) => typeof Android[m] === 'function')
   .map((m) => [m, (...args) => Android[m](window.__phoneboxKey || '', ...args)]));
 // Live preview inside the agent's layout editor: the layout comes from the editor (unsaved), not from the agent.
@@ -626,12 +626,31 @@ export const wxDeg = (c) => Math.round(cfg.weather?.unit === 'fahrenheit' ? c * 
 let weatherRetry = 0;
 let weatherFor = ''; // the location the forecast in D.weather belongs to
 let unitShown = ''; // the unit the widgets last drew: a settings change redraws the cached forecast, no new request
+let gpsLocation = null;
+
+export const getActiveCoords = () => {
+  if (bridge?.location) {
+    try {
+      const locStr = bridge.location();
+      const loc = JSON.parse(locStr || '{}');
+      if (loc && loc.hasLocation && loc.lat != null && loc.lon != null) {
+        gpsLocation = loc;
+        return { lat: loc.lat, lon: loc.lon, city: loc.city || null };
+      }
+    } catch (_) {}
+  }
+  const w = cfg.weather || DEFAULT_CFG.weather;
+  return { lat: w.lat, lon: w.lon, city: w.city || null };
+};
+
 // the model is part of the key: another model is another forecast, fetched now rather than in up to 14 minutes
-const weatherKey = () => { const { lat, lon } = cfg.weather || DEFAULT_CFG.weather; const model = wxModel(); return `v3:${lat},${lon}${model ? ':' + model : ''}`; };
+const weatherKey = () => { const { lat, lon } = getActiveCoords(); const model = wxModel(); return `v3:${lat},${lon}${model ? ':' + model : ''}`; };
 // the agent passes only known model names; this guard keeps a hand-edited cached config out of the URL as well
 const wxModel = () => (/^[a-z0-9_]{1,40}$/.test(cfg.weather?.model || '') ? cfg.weather.model : '');
 export async function loadWeather(force = false) {
-  const { lat, lon, unit } = cfg.weather || DEFAULT_CFG.weather;
+  const coords = getActiveCoords();
+  const { lat, lon } = coords;
+  const unit = (cfg.weather || DEFAULT_CFG.weather).unit;
   const key = weatherKey();
   const cached = store.get('wx', null);
   // a new place starts from its own cache or from "Loading…", never from the previous place's forecast
@@ -676,13 +695,18 @@ export function wxLines() {
   const desc = wxText(c.weather_code);
   const hi = d.temperature_2m_max ? wxDeg(d.temperature_2m_max[0]) : null;
   const lo = d.temperature_2m_min ? wxDeg(d.temperature_2m_min[0]) : null;
+  const city = gpsLocation?.city || cfg.weather?.city || '';
   return {
     icon: wxIcon(c.weather_code, c.is_day),
     temp: wxDeg(c.temperature_2m) + '°',
-    desc: `${desc} · ${cfg.weather?.city || ''}`,
+    desc: `${desc} · ${city}`,
     range: (hi != null ? `↑${hi}° ↓${lo}° · ` : '') + t('wx.feelsLike', { deg: wxDeg(c.apparent_temperature) }),
   };
 }
+
+window.onAndroidLocationChanged = () => {
+  loadWeather(true);
+};
 
 export function wxBlock() {
   const e = h('div', 'wx', h('span', 'wx-icon', '·'), h('span', 'wx-temp', '--°'),

@@ -30,6 +30,10 @@ import android.view.ViewGroup
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.view.WindowManager
+import android.Manifest
+import android.location.Location
+import android.location.LocationManager
+import android.location.Geocoder
 import android.widget.TextView
 import android.widget.Toast
 import android.webkit.JavascriptInterface
@@ -276,6 +280,13 @@ class MainActivity : Activity(), SensorEventListener {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == Dictation.PERMISSION_REQUEST)
             dictation.onPermission(grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED)
+        else if (requestCode == LOCATION_PERMISSION_REQUEST && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
+            runOnUiThread {
+                if (hasWeb && !isDestroyed) {
+                    web.evaluateJavascript("window.onAndroidLocationChanged && window.onAndroidLocationChanged()", null)
+                }
+            }
+        }
     }
 
     override fun onPause() {
@@ -562,9 +573,59 @@ class MainActivity : Activity(), SensorEventListener {
 
         @JavascriptInterface
         fun cancelListening(key: String, id: Int) { if (ok(key) && id > 0) dictation.cancel(id) }
+
+        @JavascriptInterface
+        fun location(key: String): String {
+            if (!ok(key)) return "{}"
+            if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+                checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                runOnUiThread {
+                    requestPermissions(
+                        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION),
+                        LOCATION_PERMISSION_REQUEST
+                    )
+                }
+                return "{}"
+            }
+            val lm = getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return "{}"
+            try {
+                val providers = lm.getProviders(true)
+                var bestLoc: Location? = null
+                for (provider in providers) {
+                    val l = lm.getLastKnownLocation(provider) ?: continue
+                    if (bestLoc == null || (l.hasAccuracy() && bestLoc.hasAccuracy() && l.accuracy < bestLoc.accuracy)) {
+                        bestLoc = l
+                    }
+                }
+                if (bestLoc != null) {
+                    var cityName: String? = null
+                    try {
+                        if (Geocoder.isPresent()) {
+                            val gcd = Geocoder(this@MainActivity, Locale.getDefault())
+                            @Suppress("DEPRECATION")
+                            val list = gcd.getFromLocation(bestLoc.latitude, bestLoc.longitude, 1)
+                            if (!list.isNullOrEmpty()) {
+                                cityName = list[0].locality ?: list[0].subAdminArea ?: list[0].adminArea
+                            }
+                        }
+                    } catch (_: Exception) {}
+
+                    val res = JSONObject()
+                        .put("lat", bestLoc.latitude)
+                        .put("lon", bestLoc.longitude)
+                        .put("hasLocation", true)
+                    if (!cityName.isNullOrBlank()) {
+                        res.put("city", cityName)
+                    }
+                    return res.toString()
+                }
+            } catch (_: SecurityException) { }
+            return "{}"
+        }
     }
 
     companion object {
+        const val LOCATION_PERMISSION_REQUEST = 42
         private const val ASSET_HOST = "appassets.androidplatform.net"
         private val NO_STORE = mapOf("Cache-Control" to "no-store")
         private const val PANEL_HEADER = "X-PhoneBox-Panel"
